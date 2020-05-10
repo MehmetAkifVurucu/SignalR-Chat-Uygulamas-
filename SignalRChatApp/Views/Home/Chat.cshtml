@@ -1,0 +1,267 @@
+﻿
+@{
+    Layout = null;
+}
+
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Chat</title>
+    <link href="//maxcdn.bootstrapcdn.com/bootstrap/4.1.1/css/bootstrap.min.css" rel="stylesheet" id="bootstrap-css">
+    <link rel="stylesheet" href="https://use.fontawesome.com/releases/v5.5.0/css/all.css" integrity="sha384-B4dIYHKNBt8Bc12p+WXckhzcICo0wtJAoU8YZTY5qE0Id1GSseTk6S+L3BlXeVIU" crossorigin="anonymous">
+    <link href="~/Content/chat.css" rel="stylesheet" />
+    <script src="//maxcdn.bootstrapcdn.com/bootstrap/4.1.1/js/bootstrap.min.js"></script>
+    <script src="//cdnjs.cloudflare.com/ajax/libs/jquery/3.2.1/jquery.min.js"></script>
+    <script src="~/Scripts/jquery.signalR-2.4.1.js"></script>
+    <script src="~/signalr/hubs"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/mustache.js/3.1.0/mustache.min.js"></script>
+
+</head>
+<body>
+    <div class="container-fluid h-100" id="divGiris">
+        <div class="row justify-content-center h-100">
+            <div class="col-md-4 col-xl-3 chat">
+                <div class="mb-sm-3 mb-md-0">
+                    <div class="input-group">
+                        <label>Kullanıcı Adı</label>
+                    </div>
+                    <div class="input-group">
+                        <input type="text" placeholder="Kullanıcı Adı" name="" class="form-control search" id="txtKullaniciAdi">
+                        <div class="input-group-prepend">
+                            <span class="input-group-text search_btn" title="Giriş" id="btnGiris"><i class="fas fa-sign-in-alt"></i></span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="container-fluid h-100" id="divChat" style="display:none">
+        <div class="row justify-content-center h-100">
+            <div class="col-md-4 col-xl-3 chat">
+                <div class="card mb-sm-3 mb-md-0 contacts_card">
+                    <div class="card-header">
+                        <div class="input-group">
+                            <h4>Kullanıcılar</h4>
+                        </div>
+                    </div>
+                    <div class="card-body contacts_body">
+                        <ui class="contacts">
+                            <div id="targetKullaniciListe">Kişiler Yükleniyor...</div>
+                            <script id="templateKullaniciListe" type="x-tmpl-mustache">
+                                {{#KullaniciListe}}
+                                <li class="li-sohbet li-sohbet-{{ConnectionId}}" data-alici-id="{{ConnectionId}}" data-alici-adi="{{KullaniciAdi}}">
+                                    <div class="d-flex bd-highlight">
+                                        <div class="img_cont">
+                                            <img src="https://static.turbosquid.com/Preview/001292/481/WV/_D.jpg" class="rounded-circle user_img">
+                                            <span class="{{DurumIkon}}"></span>
+                                        </div>
+                                        <div class="user_info">
+                                            <span>{{KullaniciAdi}}</span>
+                                            <p>{{Mesaj}}</p>
+                                        </div>
+                                    </div>
+                                </li>
+                                {{/KullaniciListe}}
+                            </script>
+
+                        </ui>
+                    </div>
+                    <div class="card-footer"></div>
+                </div>
+            </div>
+            <div class="col-md-8 col-xl-6 chat" id="divChatBox" style="display:none">
+                <div class="card">
+                    <div class="card-header msg_head">
+                        <div class="d-flex bd-highlight">
+                            <div class="img_cont">
+                                <img src="~/assets/images/kullanici.jpg" class="rounded-circle user_img">
+                                <span class="online_icon"></span>
+                            </div>
+                            <div class="user_info">
+                                <span id="spnToUser"></span>
+                                <p id="pTotalMessage"></p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="card-body msg_card_body" id="divMesajlasma">
+
+                    </div>
+                    <div class="card-footer">
+                        <div class="input-group">
+                            <textarea name="" class="form-control type_msg" placeholder="Mesaj..." id="txtMesaj"></textarea>
+                            <div class="input-group-append">
+                                <span class="input-group-text send_btn" id="btnMesajGonder"><i class="fas fa-location-arrow"></i></span>
+                            </div>
+                        </div>
+                        <div class="input-group">
+                            <label id="lblYaziyor" style="display:none"></label>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <script>
+        var chatBildirim;
+        var globalGonderenId;
+        $(function () {
+            chatBildirim = $.connection.chatHub;
+
+            $.connection.hub.start().done(function () {
+
+            })
+
+            chatBildirim.client.gonderenConnectionIdGoster = function (gonderenId) {
+                globalGonderenId = gonderenId
+            }
+            chatBildirim.client.mesajYaziyorGoster = function (adet) {
+                if (adet >= 1) {
+                    $("#lblYaziyor").css("display", "block");
+                }
+                else {
+                    $("#lblYaziyor").css("display", "none");
+                }
+            }
+            chatBildirim.client.kisiListele = function (kullanici) {
+                var template = $("#templateKullaniciListe").html();
+                Mustache.parse(template);
+                console.log(kullanici);
+                var data = { KullaniciListe: kullanici }
+                var rendered = Mustache.render(template, data);
+                $("#targetKullaniciListe").html(rendered);
+                $(".li-sohbet-" + globalGonderenId + "").css("display", "none");
+            }
+            chatBildirim.client.tumKonusmaGoster = function (data) {
+                $("#divMesajlasma").empty();
+                var html = '';
+                $("#pTotalMessage").empty().text(data.length + " toplam mesaj")
+                for (var i = 0; i < data.length; i++) {
+                    if (data[i].GonderenConnectionId == galiciId) {
+                        html += '<div class="d-flex justify-content-start mb-4">'
+                        html += '   <div class="img_cont_msg">'
+                        html += '       <img src="/assets/images/kullanici.jpg" class="rounded-circle user_img_msg">'
+                        html += '   </div>'
+                        html += '   <div class="msg_cotainer">'
+                        html += '       ' + data[i].Mesaj + ''
+                        html += '       <span class="msg_time">' + data[i].MesajTarih + '</span>'
+                        html += '    </div>'
+                        html += '</div>'
+                        $("#lblYaziyor").css("display", "none")
+
+                    }
+                    else {
+                        html += '<div class="d-flex justify-content-end mb-4">'
+                        html += '   <div class="msg_cotainer_send">'
+                        html += '       ' + data[i].Mesaj + ''
+                        html += '       <span class="msg_time_send">' + data[i].MesajTarih + '</span>'
+                        html += '   </div>'
+                        html += '   <div class="img_cont_msg">'
+                        html += '       <img src="/assets/images/kullanici.jpg" class="rounded-circle user_img_msg">'
+                        html += '   </div>'
+                        html += '</div>'
+
+
+                    }
+                }
+                $("#divMesajlasma").html(html);
+            }
+
+            $.connection.chatHub.disconnected = function () { console.log("bağlantı kapatıldı") };
+        })
+
+        $("#btnGiris").click(function () {
+            var txtKullaniciAdi = $("#txtKullaniciAdi").val();
+            if (txtKullaniciAdi.length >= 3) {
+                $("#divGiris").css("display", "none");
+                $("#divChat").css("display", "block");
+
+
+                chatBildirim.server.listeKullaniciEkle(txtKullaniciAdi)
+            }
+            else {
+                alert("Kullanıcı adı en az 3 karakterden oluşmak zorundadır")
+            }
+        })
+        var galiciId;
+        var galiciAdi;
+        $(document).on("click", ".li-sohbet", function () {
+            galiciId = $(this).data("alici-id")
+            galiciAdi = $(this).data("alici-adi");
+            $("#spnToUser").empty().text(galiciAdi + " ile sohbet");
+            $("#pTotalMessage").empty().text("0 toplam mesaj")
+            $(".li-sohbet").removeClass("active");
+            $(".li-sohbet-" + galiciId + "").addClass("active");
+            chatBildirim.server.mesajListele(galiciId);
+            $("#lblYaziyor").empty().text(galiciAdi + " yazıyor");
+            $("#divChatBox").css("display", "block")
+
+
+        })
+
+        $("#btnMesajGonder").click(function () {
+            var txtMesaj = $("#txtMesaj").val();
+            if (txtMesaj.length > 1) {
+                chatBildirim.server.mesajGonder(galiciAdi, galiciId, txtMesaj);
+                $("#txtMesaj").val(null);
+            }
+
+        })
+
+
+
+        $("#txtMesaj").keyup(function (event) {
+            var key = event.keyCode;
+            if (key == 13) {
+                $("#btnMesajGonder").trigger("click");
+            }
+            var txtMesaj = $("#txtMesaj").val();
+            chatBildirim.server.mesajYaziyor(galiciId, txtMesaj.length);
+
+        });
+    </script>
+    <style>
+        .li-sohbet {
+            cursor: pointer
+        }
+
+        .msg_cotainer_send {
+            min-width: 125px
+        }
+
+        .msg_cotainer {
+            min-width: 125px
+        }
+
+        .icon-badge-group .icon-badge-container {
+            display: inline-block;
+            margin-left: 25px;
+        }
+
+            .icon-badge-group .icon-badge-container:first-child {
+                margin-right: 0;
+            }
+
+        .icon-badge-container {
+            position: relative;
+        }
+
+        .icon-badge-icon {
+            font-size: 30px;
+            position: relative;
+        }
+
+        .icon-badge {
+            background-color: red;
+            font-size: 12px;
+            color: white;
+            text-align: center;
+            width: 20px;
+            height: 20px;
+            border-radius: 100%;
+            position: absolute; /* changed */
+            top: -5px; /* changed */
+            left: 18px; /* changed */
+        }
+    </style>
+</body>
+</html>
